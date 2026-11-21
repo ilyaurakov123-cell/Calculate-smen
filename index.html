@@ -1,0 +1,792 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Смены">
+<style>:root{color-scheme:light}html{padding:env(safe-area-inset-top,0px) 0 env(safe-area-inset-bottom,0px)}body{margin:0}[hidden]{display:none!important}img{max-width:100%}</style>
+<title>Смены в Excel</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
+<style>
+/* Раскладка: одна колонка, четыре шага сверху вниз, как чек-лист смены */
+:root {
+  --bg: #f2f5f3;
+  --surface: #ffffff;
+  --ink: #13211b;
+  --muted: #566860;
+  --line: #d6dfdb;
+  --accent: #0e6b51;
+  --accent-ink: #ffffff;
+  --accent-soft: #e0efe9;
+  --warn: #80540a;
+  --warn-bg: #fff2d3;
+  --bad: #9a2418;
+  --bad-bg: #fde8e5;
+  --font: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --radius: 14px;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0d1511; --surface: #15201b; --ink: #e6eeea; --muted: #92a39b; --line: #28372f;
+    --accent: #58c9a1; --accent-ink: #04231a; --accent-soft: #183328;
+    --warn: #f0c465; --warn-bg: #30270f; --bad: #ff9d90; --bad-bg: #3a1c18;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0d1511; --surface: #15201b; --ink: #e6eeea; --muted: #92a39b; --line: #28372f;
+  --accent: #58c9a1; --accent-ink: #04231a; --accent-soft: #183328;
+  --warn: #f0c465; --warn-bg: #30270f; --bad: #ff9d90; --bad-bg: #3a1c18;
+  color-scheme: dark;
+}
+body {
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--font);
+  font-size: 16px;
+  line-height: 1.45;
+  padding-block: 20px 40px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+.wrap { max-width: 560px; margin-inline: auto; display: grid; gap: 14px; }
+h1 { font-size: 1.65rem; letter-spacing: -0.01em; margin: 0; text-wrap: balance; }
+.lead { color: var(--muted); margin: 6px 0 0; }
+.card {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 16px;
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+}
+h2 { font-size: 1rem; margin: 0; display: flex; align-items: center; gap: 10px; }
+.step {
+  display: inline-grid; place-items: center; width: 24px; height: 24px; border-radius: 50%;
+  background: var(--accent-soft); color: var(--accent); font-size: 0.8rem; font-weight: 700;
+}
+.field { display: grid; gap: 6px; min-width: 0; }
+label, legend, .lbl { font-size: 0.85rem; color: var(--muted); font-weight: 500; }
+fieldset { border: 0; padding: 0; margin: 0; display: grid; gap: 8px; min-width: 0; }
+legend { padding: 0; margin-bottom: 8px; }
+legend .hint { color: var(--accent); font-weight: 600; }
+input[type="date"], input[type="time"], input[type="text"] {
+  width: 100%; min-height: 48px; padding: 0 12px; font: 500 1rem var(--font);
+  color: var(--ink); background: var(--bg); border: 1px solid var(--line); border-radius: 10px;
+  font-variant-numeric: tabular-nums; box-sizing: border-box;
+}
+input:focus-visible, .btn:focus-visible, .btn:focus-within { outline: 2px solid var(--accent); outline-offset: 2px; }
+.row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.row3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.btn {
+  min-height: 48px; border-radius: 12px; border: 1px solid transparent; padding: 0 16px;
+  font: 600 1rem var(--font); display: flex; align-items: center; justify-content: center;
+  cursor: pointer; text-align: center; box-sizing: border-box;
+}
+.btn.primary { background: var(--accent); color: var(--accent-ink); }
+.btn.secondary { background: var(--accent-soft); color: var(--accent); }
+.btn:disabled { opacity: 0.45; cursor: not-allowed; }
+.sr { position: absolute; width: 1px; height: 1px; opacity: 0; overflow: hidden; }
+.status { margin: 0; font-size: 0.92rem; color: var(--muted); overflow-wrap: anywhere; }
+.status.good { color: var(--accent); font-weight: 600; }
+.status.bad { color: var(--bad); }
+.note { border-radius: 10px; padding: 10px 12px; font-size: 0.9rem; margin: 0; }
+.note.warn { background: var(--warn-bg); color: var(--warn); }
+.note.bad { background: var(--bad-bg); color: var(--bad); }
+.note.info { background: var(--accent-soft); color: var(--accent); font-weight: 500; }
+.seg { display: grid; gap: 8px; }
+.seg-btn {
+  min-height: 48px; padding: 8px 14px; border-radius: 12px; border: 1px solid var(--line);
+  background: var(--bg); color: var(--ink); font: 600 0.95rem var(--font); text-align: left; cursor: pointer;
+}
+.seg-btn[aria-pressed="true"] { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
+.seg-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.stack { display: grid; gap: 8px; }
+.changes, .log { list-style: none; margin: 0; padding: 0; display: grid; gap: 0; }
+.changes li { display: grid; gap: 2px; padding: 10px 0; border-top: 1px solid var(--line); }
+.changes li:first-child { border-top: 0; }
+.ch-head { display: flex; justify-content: space-between; gap: 12px; font-weight: 600; font-size: 0.95rem; }
+.addr { font-variant-numeric: tabular-nums; color: var(--accent); font-weight: 700; }
+.ch-val { color: var(--muted); font-size: 0.9rem; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.log li { padding: 8px 0; border-top: 1px solid var(--line); font-size: 0.92rem; font-variant-numeric: tabular-nums; }
+.log li:first-child { border-top: 0; }
+.map { margin: 0; display: grid; gap: 8px; font-size: 0.92rem; }
+.map div { display: grid; grid-template-columns: 7.5rem 1fr; gap: 10px; }
+.map dt { font-weight: 600; }
+.map dd { margin: 0; color: var(--muted); }
+.hint-text { margin: 0; color: var(--muted); font-size: 0.88rem; }
+@media (prefers-reduced-motion: no-preference) { .btn { transition: opacity 0.15s; } }
+</style>
+
+</head>
+<body>
+<main class="wrap">
+  <header>
+    <h1>Смены в Excel</h1>
+    <p class="lead">Впишите часы, доставки по зонам и бонус за день в вашу таблицу. Всё работает на телефоне: таблица и скриншоты никуда не отправляются.</p>
+  </header>
+
+  <section class="card" aria-labelledby="t1">
+    <h2 id="t1"><span class="step">1</span>Таблица месяца</h2>
+    <label class="btn secondary" for="file">Выбрать файл .xlsx
+      <input id="file" class="sr" type="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet">
+    </label>
+    <p id="fileStatus" class="status" role="status" aria-live="polite">Файл не выбран</p>
+  </section>
+
+  <section class="card" aria-labelledby="t2">
+    <h2 id="t2"><span class="step">2</span>Смена</h2>
+    <div id="shotBox" class="stack">
+      <label class="btn secondary" for="shots">Прочитать скриншоты из приложения
+        <input id="shots" class="sr" type="file" accept="image/*" multiple>
+      </label>
+      <p id="shotStatus" class="status" role="status" aria-live="polite">Выберите оба скриншота за один день: «Статистика» и «Количество доставок». Зоны, бонус и дата заполнятся сами. Если скриншоты сделаны не сегодня, проверьте дату. В первый раз распознавание скачивает языковой набор, это может занять минуту.</p>
+      <div id="shotNotes" class="stack"></div>
+    </div>
+    <div class="field">
+      <label for="date">Дата</label>
+      <input id="date" type="date">
+    </div>
+    <div class="field">
+      <span class="lbl" id="shiftLbl">Часы работы</span>
+      <div class="seg" role="group" aria-labelledby="shiftLbl">
+        <button type="button" id="usualBtn" class="seg-btn" aria-pressed="false">Обычная смена (с 11:30 до 23:00)</button>
+        <button type="button" id="customBtn" class="seg-btn" aria-pressed="false">Другая смена</button>
+      </div>
+    </div>
+    <div id="timeRow" class="row2" hidden>
+      <div class="field"><label for="start">От</label><input id="start" type="time"></div>
+      <div class="field"><label for="end">До</label><input id="end" type="time"></div>
+    </div>
+    <fieldset>
+      <legend>Доставки по зонам <span class="hint" id="halfHint"></span></legend>
+      <div class="row3">
+        <div class="field"><label for="z0" id="zl0">Зона 1</label><input id="z0" type="text" inputmode="numeric" placeholder="0" autocomplete="off"></div>
+        <div class="field"><label for="z1" id="zl1">Зона 2</label><input id="z1" type="text" inputmode="numeric" placeholder="0" autocomplete="off"></div>
+        <div class="field"><label for="z2" id="zl2">Зона 3</label><input id="z2" type="text" inputmode="numeric" placeholder="0" autocomplete="off"></div>
+      </div>
+    </fieldset>
+    <div class="field">
+      <label for="bonus">Бонус за день, ₽</label>
+      <input id="bonus" type="text" inputmode="decimal" placeholder="0" autocomplete="off">
+    </div>
+  </section>
+
+  <section class="card" aria-labelledby="t3">
+    <h2 id="t3"><span class="step">3</span>Что изменится</h2>
+    <div id="notes" class="stack"></div>
+    <ul id="changes" class="changes"></ul>
+    <dl id="legend" class="map">
+      <div><dt>Часы</dt><dd>строки начала и конца под числом дня: 2–3, 5–6, 8–9, 11–12</dd></div>
+      <div><dt>Доставки</dt><dd>колонки F, G, H: строка 14 для дней 1–15, строка 16 для дней 16–31. Количество прибавляется к тому, что уже в ячейке</dd></div>
+      <div><dt>Бонус</dt><dd>нижняя таблица, строки 23, 25, 27, 29, ячейка нужного дня</dd></div>
+    </dl>
+    <button id="addBtn" class="btn primary" type="button" disabled>Добавить в таблицу</button>
+  </section>
+
+  <section class="card" aria-labelledby="t4">
+    <h2 id="t4"><span class="step">4</span>Сохранение</h2>
+    <ul id="log" class="log" aria-label="Добавлено в этом сеансе"></ul>
+    <p id="pending" class="status">Пока ничего не добавлено</p>
+    <button id="saveBtn" class="btn primary" type="button" disabled>Сохранить файл</button>
+    <p class="hint-text">В меню выберите «Сохранить в Файлы» и подтвердите замену старого файла.</p>
+  </section>
+</main>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js"></script>
+<script>
+// <layout>
+// Раскладка таблицы: четыре блока дней. В каждом: строка с числами дней,
+// под ней строка начала и строка конца смены; бонусы лежат в нижней таблице.
+const BLOCKS = [
+  { from: 1,  to: 8,  label: 1,  start: 2,  end: 3,  bonus: 23 },
+  { from: 9,  to: 15, label: 4,  start: 5,  end: 6,  bonus: 25 },
+  { from: 16, to: 23, label: 7,  start: 8,  end: 9,  bonus: 27 },
+  { from: 24, to: 31, label: 10, start: 11, end: 12, bonus: 29 },
+];
+const ZONE_COLS = [6, 7, 8]; // F, G, H
+const HALVES = { first: { head: 13, row: 14 }, second: { head: 15, row: 16 } };
+
+const pad = n => String(n).padStart(2, '0');
+const colName = c => String.fromCharCode(64 + c);
+const addr = (r, c) => colName(c) + r;
+const locate = day => {
+  const b = BLOCKS.find(x => day >= x.from && day <= x.to);
+  return b ? { ...b, col: day - b.from + 1 } : null;
+};
+
+function plain(cell) {
+  let v = cell.value;
+  if (v instanceof Date) return v;
+  if (v && typeof v === 'object') {
+    if ('result' in v) v = v.result;
+    else if (Array.isArray(v.richText)) v = v.richText.map(t => t.text).join('');
+    else if ('text' in v) v = v.text;
+    else v = null;
+  }
+  return v === undefined ? null : v;
+}
+function hasFormula(cell) {
+  const v = cell.value;
+  return !!v && typeof v === 'object' && !(v instanceof Date) && ('formula' in v || 'sharedFormula' in v);
+}
+function showTime(v) {
+  if (v === null || v === undefined || v === '') return '—';
+  if (v instanceof Date) return pad(v.getUTCHours()) + ':' + pad(v.getUTCMinutes());
+  if (typeof v === 'number') {
+    const mins = Math.round((v % 1) * 1440) % 1440;
+    return pad(Math.floor(mins / 60)) + ':' + pad(mins % 60);
+  }
+  return String(v);
+}
+function parseNum(s) {
+  const t = String(s ?? '').trim().replace(/\s/g, '').replace(',', '.');
+  if (t === '') return NaN;
+  return Number(t);
+}
+function parseTime(s) {
+  const m = /^(\d{1,2}):(\d{2})/.exec(s || '');
+  if (!m) return null;
+  return (Number(m[1]) * 60 + Number(m[2])) / 1440;
+}
+
+function checkLayout(ws) {
+  const problems = [];
+  for (const b of BLOCKS) {
+    const lastCol = b.to - b.from + 1;
+    const first = Number(plain(ws.getCell(b.label, 1)));
+    const last = Number(plain(ws.getCell(b.label, lastCol)));
+    if (first !== b.from || last !== b.to) {
+      problems.push(`в строке ${b.label} ожидались дни ${b.from}–${b.to}`);
+    }
+  }
+  for (const h of Object.values(HALVES)) {
+    for (const c of ZONE_COLS) {
+      const n = Number(plain(ws.getCell(h.head, c)));
+      if (!(n > 0)) problems.push(`в ${addr(h.head, c)} ожидалась цена зоны`);
+    }
+  }
+  return problems;
+}
+
+// Считает изменения, ничего не записывая.
+function plan(ws, inp) {
+  const changes = [], warnings = [], errors = [];
+  const b = locate(inp.day);
+  if (!b) return { changes, warnings, errors: ['Выберите дату смены'] };
+  const half = inp.day <= 15 ? 'first' : 'second';
+
+  const label = Number(plain(ws.getCell(b.label, b.col)));
+  if (label !== inp.day) {
+    errors.push(`В ячейке ${addr(b.label, b.col)} должно быть число ${inp.day}. Проверьте, что выбран файл нужного месяца.`);
+  }
+
+  if (!!inp.start !== !!inp.end) {
+    warnings.push('Указано только начало или только конец смены. Второе время в таблице не изменится.');
+  }
+  [['start', b.start, 'Начало смены'], ['end', b.end, 'Конец смены']].forEach(([k, row, title]) => {
+    const t = inp[k];
+    if (!t) return;
+    const frac = parseTime(t);
+    if (frac === null) { errors.push(`${title}: время не распознано`); return; }
+    const cell = ws.getCell(row, b.col);
+    const old = plain(cell);
+    const isText = typeof old === 'string' && old.trim() !== '';
+    const from = showTime(old);
+    if (from !== '—' && from !== t) warnings.push(`${title} ${inp.day}-го уже заполнено (${from}) и будет заменено.`);
+    if (hasFormula(cell)) warnings.push(`В ${addr(row, b.col)} была формула, она заменится временем.`);
+    changes.push({
+      title, address: addr(row, b.col), cell, from, to: t,
+      value: isText ? `${t}:00` : frac,
+      numFmt: (!isText && (!cell.numFmt || cell.numFmt === 'General')) ? 'h:mm:ss' : null,
+    });
+  });
+
+  const hr = HALVES[half];
+  ZONE_COLS.forEach((col, i) => {
+    const raw = String(inp.zones[i] ?? '').trim();
+    if (raw === '') return;
+    const price = plain(ws.getCell(hr.head, col));
+    const n = parseNum(raw);
+    if (!Number.isInteger(n) || n < 0) { errors.push(`Зона ${price} ₽: нужно целое число`); return; }
+    if (n === 0) return;
+    const cell = ws.getCell(hr.row, col);
+    const v = cell.value;
+    const a = addr(hr.row, col);
+    let value, from, to;
+    if (v === null || v === undefined || v === '') {
+      value = n; from = '—'; to = String(n);
+    } else if (typeof v === 'number') {
+      value = v + n; from = String(v); to = `${v} + ${n} = ${v + n}`;
+    } else if (typeof v === 'string' && Number.isFinite(parseNum(v))) {
+      const base = parseNum(v); value = base + n; from = v; to = `${base} + ${n} = ${base + n}`;
+    } else if (typeof v === 'object' && !(v instanceof Date) && typeof v.formula === 'string' && !('sharedFormula' in v) && v.shareType !== 'shared') {
+      value = { formula: `${v.formula}+${n}`, result: (Number(v.result) || 0) + n };
+      from = `=${v.formula}`; to = `=${v.formula}+${n}`;
+    } else if (typeof v === 'object' && !(v instanceof Date) && ('formula' in v || 'sharedFormula' in v)) {
+      const base = Number(v.result) || 0;
+      value = base + n; from = `${base} (формула)`; to = `${base} + ${n} = ${base + n}`;
+      warnings.push(`В ${a} общая формула: она заменится числом.`);
+    } else {
+      errors.push(`${a}: не удалось прочитать текущее значение`); return;
+    }
+    changes.push({ title: `Зона ${price} ₽, доставок +${n}`, address: a, cell, from, to, value, numFmt: null });
+  });
+
+  const braw = String(inp.bonus ?? '').trim();
+  if (braw !== '') {
+    const n = parseNum(braw);
+    if (!Number.isFinite(n)) {
+      errors.push('Бонус: нужно число');
+    } else {
+      const above = Number(plain(ws.getCell(b.bonus - 1, b.col)));
+      if (above !== inp.day) errors.push(`Над ${addr(b.bonus, b.col)} ожидалось число ${inp.day}, нижняя таблица устроена иначе.`);
+      const cell = ws.getCell(b.bonus, b.col);
+      const old = plain(cell);
+      if (old !== null && old !== '' && Number(old) !== n) warnings.push(`Бонус за ${inp.day}-е уже был ${old}, он будет заменён.`);
+      if (hasFormula(cell)) warnings.push(`В ${addr(b.bonus, b.col)} была формула, она заменится числом.`);
+      changes.push({
+        title: 'Бонус за день', address: addr(b.bonus, b.col), cell,
+        from: old === null || old === '' ? '—' : String(old), to: String(n), value: n, numFmt: null,
+      });
+    }
+  }
+  return { changes, warnings, errors };
+}
+// Зоны в приложении курьера и цена доставки за каждую
+const ZONE_PRICES = [160, 210, 250];
+const GEN_MONTHS = ['января','февраля','марта','апреля','мая','июня','июля','августа','сентября','октября','ноября','декабря'];
+
+function zonePrice(name) {
+  const n = String(name || '').toLowerCase();
+  if (/не\s*-?\s*гарант/.test(n)) return 210;
+  if (/спец/.test(n)) return 250;
+  if (/золот|гарант/.test(n)) return 160;
+  return null;
+}
+function mapZones(zones) {
+  const sums = { 160: 0, 210: 0, 250: 0 }, unknown = [];
+  for (const z of Array.isArray(zones) ? zones : []) {
+    const price = zonePrice(z && z.name), count = Number(z && z.count);
+    if (price === null || !Number.isInteger(count) || count < 0) { unknown.push(String(z && z.name)); continue; }
+    sums[price] += count;
+  }
+  return { sums, unknown };
+}
+// Сверка с итогами, которые приложение показывает само
+function checkShots(data, sums) {
+  const warnings = [];
+  const counted = sums[160] + sums[210] + sums[250];
+  if (data.total_deliveries != null && Number(data.total_deliveries) !== counted) {
+    warnings.push(`Общее число доставок на скриншоте ${data.total_deliveries}, а по зонам получилось ${counted}.`);
+  }
+  if (data.delivery_pay != null) {
+    const expected = sums[160] * 160 + sums[210] * 210 + sums[250] * 250;
+    if (Number(data.delivery_pay) !== expected) {
+      warnings.push(`Оплата за доставки в приложении ${data.delivery_pay} ₽, а по ценам зон выходит ${expected} ₽. Проверьте количества.`);
+    }
+  }
+  return warnings;
+}
+function parsePeriod(text) {
+  const t = String(text || '').toLowerCase();
+  if (/сегодня/.test(t)) return { kind: 'today' };
+  if (/вчера/.test(t)) return { kind: 'yesterday' };
+  const num = /(\d{1,2})[./](\d{1,2})(?:[./]\d{2,4})?/.exec(t);
+  if (num) return { kind: 'date', day: Number(num[1]), month: Number(num[2]) - 1 };
+  const w = new RegExp('(\\d{1,2})\\s+(' + GEN_MONTHS.join('|') + ')').exec(t);
+  if (w) return { kind: 'date', day: Number(w[1]), month: GEN_MONTHS.indexOf(w[2]) };
+  return null;
+}
+// Оплата часов: 200 ₽/ч, с 22:00 надбавка 20%, обед 30 минут вычитается из дневных часов
+const HOUR_RATE = 200, NIGHT_RATE = 240, NIGHT_FROM = 22 * 60, LUNCH_MIN = 30;
+function shiftPay(start, end) {
+  const toMin = s => { const m = /^(\d{1,2}):(\d{2})/.exec(s || ''); return m ? Number(m[1]) * 60 + Number(m[2]) : null; };
+  const a = toMin(start);
+  let b = toMin(end);
+  if (a === null || b === null) return null;
+  if (b <= a) b += 1440;
+  const night = Math.max(0, b - Math.max(a, NIGHT_FROM));
+  const day = Math.max(0, b - a - night - LUNCH_MIN);
+  const pay = Math.round((day / 60 * HOUR_RATE + night / 60 * NIGHT_RATE) * 100) / 100;
+  return { total: day + night, day, night, pay };
+}
+function fmtDur(min) {
+  const h = Math.floor(min / 60), m = min % 60;
+  return h ? (m ? `${h} ч ${m} мин` : `${h} ч`) : `${m} мин`;
+}
+// Разбор результата распознавания: строки с рамками и словами (координаты в пикселях скриншота)
+function ocrNumber(text) {
+  const t = String(text).replace(/[^\d.,]/g, '').replace(',', '.');
+  const n = Number(t);
+  return t !== '' && Number.isFinite(n) ? n : null;
+}
+// Строка может склеить две плитки в одну: режем её по большим горизонтальным разрывам
+function splitLine(l) {
+  const ws = l.words || [];
+  if (ws.length < 2) return [l];
+  const h = Math.max(1, l.bbox.y1 - l.bbox.y0);
+  const groups = [[ws[0]]];
+  for (let i = 1; i < ws.length; i++) {
+    if (ws[i].bbox.x0 - ws[i - 1].bbox.x1 > 2 * h) groups.push([ws[i]]);
+    else groups[groups.length - 1].push(ws[i]);
+  }
+  return groups.map(g => ({
+    text: g.map(w => w.text).join(' '),
+    words: g,
+    bbox: { x0: Math.min(...g.map(w => w.bbox.x0)), y0: Math.min(...g.map(w => w.bbox.y0)), x1: Math.max(...g.map(w => w.bbox.x1)), y1: Math.max(...g.map(w => w.bbox.y1)) },
+  }));
+}
+function parseOcr(rawLines) {
+  const lines = rawLines.flatMap(splitLine);
+  const mid = b => ({ x: (b.x0 + b.x1) / 2, y: (b.y0 + b.y1) / 2 });
+  const words = rawLines.flatMap(l => l.words || []).filter(w => /^\d/.test(String(w.text).trim()));
+  const lower = l => String(l.text).toLowerCase();
+  const find = re => lines.find(l => re.test(lower(l)));
+
+  // Число в конце строки или отдельное слово правее на той же высоте
+  const countOf = l => {
+    const m = /(\d+)[^\d]{0,2}$/.exec(String(l.text).trim());
+    if (m) return Number(m[1]);
+    const h = l.bbox.y1 - l.bbox.y0, my = mid(l.bbox).y;
+    const near = words.filter(w => Math.abs(mid(w.bbox).y - my) < h && w.bbox.x0 >= l.bbox.x1 - 5)
+      .sort((a, b) => b.bbox.x0 - a.bbox.x0);
+    return near.length ? ocrNumber(near[0].text) : null;
+  };
+  // Плитка: число стоит над подписью
+  const above = l => {
+    const h = Math.max(1, l.bbox.y1 - l.bbox.y0);
+    const c = words.filter(w => {
+      const m = mid(w.bbox);
+      return m.y < l.bbox.y0 && l.bbox.y0 - w.bbox.y1 < Math.max(150, 8 * h) && m.x > l.bbox.x0 - 40 && m.x < l.bbox.x1 + 40;
+    }).sort((a, b) => b.bbox.y1 - a.bbox.y1);
+    return c.length ? ocrNumber(c[0].text) : null;
+  };
+
+  const zones = [];
+  for (const l of lines) {
+    const t = lower(l);
+    if (/общее/.test(t) || !/(золот|гарант|спец)/.test(t)) continue;
+    const count = countOf(l);
+    if (count === null) continue;
+    zones.push({ name: String(l.text).replace(/\d+[^\d]{0,2}$/, '').trim(), count });
+  }
+  const totalLine = find(/общее.*доставок/);
+  const payLine = find(/оплата\s+за\s+доставк/);
+  const bonusLine = find(/бонус/);
+
+  const all = lines.map(l => l.text).join('\n');
+  const pm = /сегодня|вчера/i.exec(all)
+    || new RegExp('\\d{1,2}\\s+(' + GEN_MONTHS.join('|') + ')', 'i').exec(all)
+    || /\d{1,2}\.\d{1,2}\.\d{4}/.exec(all);
+
+  return {
+    period: pm ? pm[0] : null,
+    zones,
+    total_deliveries: totalLine ? countOf(totalLine) : null,
+    delivery_pay: payLine ? above(payLine) : null,
+    bonus: bonusLine ? above(bonusLine) : null,
+  };
+}
+// Несколько скриншотов одного дня: берём первое найденное значение каждого поля
+function mergeShots(list) {
+  const out = { period: null, zones: [], total_deliveries: null, delivery_pay: null, bonus: null };
+  for (const d of list) {
+    if (out.period === null && d.period) out.period = d.period;
+    if (!out.zones.length && d.zones.length) out.zones = d.zones;
+    for (const k of ['total_deliveries', 'delivery_pay', 'bonus']) if (out[k] === null && d[k] != null) out[k] = d[k];
+  }
+  return out;
+}
+// </layout>
+
+const $ = id => document.getElementById(id);
+const MONTH_NAMES = ['январь','февраль','март','апрель','май','июнь','июль','август','сентябрь','октябрь','ноябрь','декабрь'];
+const MONTH_GEN = ['января','февраля','марта','апреля','мая','июня','июля','августа','сентября','октября','ноября','декабря'];
+const MONTH_STEMS = [/январ/, /феврал/, /март/, /апрел/, /ма[йя]/, /июн/, /июл/, /август/, /сентябр/, /октябр/, /ноябр/, /декабр/];
+
+let wb = null, ws = null, fileName = '', applied = 0;
+
+// --- Выбор смены: обычная или другая ---
+const USUAL = { start: '11:30', end: '23:00' };
+function setShiftMode(mode) {
+  $('usualBtn').setAttribute('aria-pressed', String(mode === 'usual'));
+  $('customBtn').setAttribute('aria-pressed', String(mode === 'custom'));
+  $('timeRow').hidden = mode !== 'custom';
+  $('start').value = mode === 'usual' ? USUAL.start : '';
+  $('end').value = mode === 'usual' ? USUAL.end : '';
+}
+$('usualBtn').addEventListener('click', () => {
+  setShiftMode($('usualBtn').getAttribute('aria-pressed') === 'true' ? null : 'usual');
+  refresh();
+});
+$('customBtn').addEventListener('click', () => {
+  const on = $('customBtn').getAttribute('aria-pressed') === 'true';
+  setShiftMode(on ? null : 'custom');
+  refresh();
+  if (!on) $('start').focus();
+});
+
+// --- Чтение скриншотов приложения прямо в браузере (Tesseract.js) ---
+function ocrLines(data) {
+  const fromBlocks = (data.blocks || []).flatMap(b => (b.paragraphs || []).flatMap(p => p.lines || []));
+  const src = fromBlocks.length ? fromBlocks : (data.lines || []);
+  return src.map(l => ({
+    text: String(l.text || '').replace(/\s+/g, ' ').trim(),
+    bbox: l.bbox,
+    words: (l.words || []).map(w => ({ text: w.text, bbox: w.bbox })),
+  })).filter(l => l.text && l.bbox);
+}
+function zoneIndex(price) {
+  const fromSheet = ws ? ZONE_COLS.map(c => Number(plain(ws.getCell(HALVES.first.head, c)))) : ZONE_PRICES;
+  const i = fromSheet.indexOf(price);
+  return i >= 0 ? i : ZONE_PRICES.indexOf(price);
+}
+function setDateFromPeriod(per) {
+  if (!per) return false;
+  const t = new Date();
+  if (per.kind === 'yesterday') t.setDate(t.getDate() - 1);
+  let y = t.getFullYear(), m = t.getMonth(), d = t.getDate();
+  if (per.kind === 'date') { m = per.month; d = per.day; if (m > t.getMonth()) y -= 1; }
+  $('date').value = `${y}-${pad(m + 1)}-${pad(d)}`;
+  return true;
+}
+
+$('shots').addEventListener('change', async e => {
+  const files = Array.from(e.target.files || []);
+  e.target.value = '';
+  if (!files.length) return;
+  const st = $('shotStatus'), notes = $('shotNotes');
+  notes.replaceChildren();
+  if (typeof Tesseract === 'undefined') {
+    st.className = 'status bad';
+    st.textContent = 'Не загрузилась библиотека распознавания. Проверьте интернет и откройте страницу заново. Поля можно заполнить вручную.';
+    return;
+  }
+  st.className = 'status';
+  $('shots').disabled = true;
+  let worker = null;
+  try {
+    st.textContent = 'Готовлю распознавание. В первый раз скачивается языковой набор, это может занять минуту.';
+    worker = await Tesseract.createWorker('rus+eng');
+    const found = [];
+    for (let i = 0; i < files.length; i++) {
+      st.textContent = `Читаю скриншот ${i + 1} из ${files.length}…`;
+      const res = await worker.recognize(files[i], {}, { blocks: true, text: true });
+      found.push(parseOcr(ocrLines(res.data)));
+    }
+    const data = mergeShots(found);
+    const { sums, unknown } = mapZones(data.zones);
+
+    ['z0', 'z1', 'z2'].forEach(id => { $(id).value = ''; });
+    for (const price of ZONE_PRICES) {
+      const i = zoneIndex(price);
+      if (sums[price] && i >= 0) $('z' + i).value = String(sums[price]);
+    }
+
+    const bonus = data.bonus != null ? Number(data.bonus) : NaN;
+    const hasBonus = Number.isFinite(bonus);
+    if (hasBonus) $('bonus').value = String(bonus).replace('.', ',');
+
+    const dateSet = setDateFromPeriod(parsePeriod(data.period));
+
+    const parts = ZONE_PRICES.filter(p => sums[p]).map(p => `${p} ₽ ×${sums[p]}`);
+    if (hasBonus) parts.push(`бонус ${bonus} ₽`);
+    st.className = 'status ' + (parts.length ? 'good' : 'bad');
+    st.textContent = parts.length
+      ? `Распознано: ${parts.join(', ')}. Проверьте поля ниже.`
+      : 'На скриншотах ничего не нашлось. Заполните поля вручную.';
+
+    if (parts.length) notes.append(note('info', 'Распознавание на телефоне иногда ошибается: сверьте числа со скриншотами.'));
+    checkShots(data, sums).forEach(t => notes.append(note('warn', t)));
+    unknown.forEach(n => notes.append(note('warn', `Не удалось отнести к цене зону «${n}». Добавьте её количество вручную.`)));
+    if (!hasBonus) notes.append(note('warn', 'Бонус на скриншотах не найден.'));
+    if (!dateSet) notes.append(note('warn', 'Дату на скриншотах определить не удалось, проверьте её сами.'));
+    if (!$('start').value && !$('end').value) notes.append(note('warn', 'Время смены на этих экранах не видно. Выберите «Обычная смена» или введите время вручную.'));
+  } catch (err) {
+    st.className = 'status bad';
+    st.textContent = 'Не удалось прочитать скриншоты. Выберите их ещё раз или введите данные вручную.';
+  } finally {
+    if (worker) { try { await worker.terminate(); } catch (e2) { /* ignore */ } }
+    $('shots').disabled = false;
+    refresh();
+  }
+});
+
+(function setToday() {
+  const t = new Date();
+  $('date').value = `${t.getFullYear()}-${pad(t.getMonth() + 1)}-${pad(t.getDate())}`;
+})();
+
+function setStatus(text, kind) {
+  const el = $('fileStatus');
+  el.textContent = text;
+  el.className = 'status' + (kind ? ' ' + kind : '');
+}
+
+function readInput() {
+  const v = $('date').value;
+  let day = 0, month = null;
+  if (v) { const p = v.split('-').map(Number); day = p[2]; month = p[1] - 1; }
+  return {
+    day, month, start: $('start').value, end: $('end').value,
+    zones: [$('z0').value, $('z1').value, $('z2').value], bonus: $('bonus').value,
+  };
+}
+
+function note(kind, text) {
+  const p = document.createElement('p');
+  p.className = 'note ' + kind;
+  p.textContent = text;
+  return p;
+}
+
+function refresh() {
+  const inp = readInput();
+  $('halfHint').textContent = inp.day ? (inp.day <= 15 ? '· дни 1–15, строка 14' : '· дни 16–31, строка 16') : '';
+  const notes = $('notes'), list = $('changes');
+  notes.replaceChildren(); list.replaceChildren();
+  $('legend').hidden = false;
+  $('addBtn').disabled = true;
+  if (!ws) return;
+
+  const sp = inp.start && inp.end ? shiftPay(inp.start, inp.end) : null;
+  if (sp) {
+    const nightText = sp.night ? `, из них ночных ${fmtDur(sp.night)}` : '';
+    notes.append(note('info', `Часы за смену: ${fmtDur(sp.total)}${nightText}, обед 30 минут вычтен. Оплата за часы: ${sp.pay.toLocaleString('ru-RU')} ₽.`));
+  }
+  const p = plan(ws, inp);
+  const stem = MONTH_STEMS.findIndex(r => r.test(fileName.toLowerCase()));
+  if (stem >= 0 && inp.month !== null && stem !== inp.month) {
+    p.warnings.unshift(`В названии файла месяц «${MONTH_NAMES[stem]}», а дата выбрана в месяце «${MONTH_NAMES[inp.month]}».`);
+  }
+  p.errors.forEach(t => notes.append(note('bad', t)));
+  p.warnings.forEach(t => notes.append(note('warn', t)));
+  if (!p.changes.length && !p.errors.length) {
+    notes.append(note('warn', 'Заполните время, доставки или бонус.'));
+  }
+  for (const ch of p.changes) {
+    const li = document.createElement('li');
+    const head = document.createElement('div'); head.className = 'ch-head';
+    const t = document.createElement('span'); t.textContent = ch.title;
+    const a = document.createElement('span'); a.className = 'addr'; a.textContent = ch.address;
+    head.append(t, a);
+    const val = document.createElement('div'); val.className = 'ch-val';
+    val.textContent = `${ch.from} → ${ch.to}`;
+    li.append(head, val);
+    list.append(li);
+  }
+  if (p.changes.length) $('legend').hidden = true;
+  $('addBtn').disabled = !p.changes.length || p.errors.length > 0;
+}
+
+function updateSave() {
+  const btn = $('saveBtn'), pend = $('pending');
+  btn.disabled = !wb || applied === 0;
+  pend.textContent = applied ? `Ячеек изменено: ${applied}. Теперь сохраните файл.` : 'Пока ничего не добавлено';
+}
+
+$('file').addEventListener('change', async e => {
+  const f = e.target.files[0];
+  if (!f) return;
+  setStatus('Читаю файл…');
+  if (typeof ExcelJS === 'undefined') {
+    setStatus('Не загрузилась библиотека для Excel. Проверьте интернет и откройте страницу заново.', 'bad');
+    return;
+  }
+  try {
+    const book = new ExcelJS.Workbook();
+    await book.xlsx.load(await f.arrayBuffer());
+    let found = null, firstProblems = null;
+    for (const s of book.worksheets) {
+      const pr = checkLayout(s);
+      if (!pr.length) { found = s; break; }
+      if (!firstProblems) firstProblems = pr;
+    }
+    if (!found) {
+      wb = null; ws = null;
+      setStatus('В файле не нашлась привычная раскладка: ' + (firstProblems || ['нет листов']).slice(0, 3).join('; ') + '.', 'bad');
+    } else {
+      wb = book; ws = found; fileName = f.name; applied = 0;
+      $('log').replaceChildren();
+      ZONE_COLS.forEach((c, i) => { $('zl' + i).textContent = `Зона ${plain(ws.getCell(HALVES.first.head, c))} ₽`; });
+      setStatus(`Готово: ${fileName}, лист «${ws.name}»`, 'good');
+    }
+  } catch (err) {
+    wb = null; ws = null;
+    setStatus('Не удалось прочитать файл. Нужен формат .xlsx. ' + (err && err.message ? err.message : ''), 'bad');
+  } finally {
+    e.target.value = '';
+    refresh(); updateSave();
+  }
+});
+
+['date', 'start', 'end', 'z0', 'z1', 'z2', 'bonus'].forEach(id => {
+  $(id).addEventListener('input', refresh);
+  $(id).addEventListener('change', refresh);
+});
+
+$('addBtn').addEventListener('click', () => {
+  if (!ws) return;
+  const inp = readInput();
+  const p = plan(ws, inp);
+  if (p.errors.length || !p.changes.length) { refresh(); return; }
+  for (const ch of p.changes) {
+    ch.cell.value = ch.value;
+    if (ch.numFmt) ch.cell.numFmt = ch.numFmt;
+  }
+  applied += p.changes.length;
+
+  const parts = [];
+  if (inp.start && inp.end) parts.push(`${inp.start}–${inp.end}`);
+  const z = p.changes.filter(c => c.title.startsWith('Зона')).map(c => c.title.replace('Зона ', '').replace(', доставок ', ' '));
+  if (z.length) parts.push(z.join(', '));
+  if (inp.bonus.trim()) parts.push(`бонус ${inp.bonus.trim()} ₽`);
+  const li = document.createElement('li');
+  li.textContent = `${inp.day} ${MONTH_GEN[inp.month]}: ${parts.join('; ')}`;
+  $('log').prepend(li);
+
+  ['z0', 'z1', 'z2', 'bonus'].forEach(id => { $(id).value = ''; });
+  setShiftMode(null);
+  refresh(); updateSave();
+});
+
+async function deliverFile(blob) {
+  const file = new File([blob], fileName, { type: blob.type });
+  if (navigator.canShare && navigator.canShare({ files: [file] })) {
+    try { await navigator.share({ files: [file] }); return 'shared'; }
+    catch (e) { if (e && e.name === 'AbortError') return 'cancelled'; }
+  }
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = fileName;
+  document.body.append(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 60000);
+  return 'downloaded';
+}
+
+$('saveBtn').addEventListener('click', async () => {
+  if (!wb) return;
+  const pend = $('pending');
+  try {
+    wb.calcProperties = Object.assign({}, wb.calcProperties, { fullCalcOnLoad: true });
+    const buf = await wb.xlsx.writeBuffer();
+    const blob = new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    const how = await deliverFile(blob);
+    pend.textContent = how === 'cancelled'
+      ? 'Сохранение отменено. Изменения остались на странице, нажмите кнопку ещё раз.'
+      : how === 'shared'
+        ? 'Выберите «Сохранить в Файлы» и подтвердите замену старого файла.'
+        : 'Файл скачан в загрузки. Замените им старый файл в «Файлах».';
+  } catch (err) {
+    pend.textContent = 'Не удалось сохранить: ' + ((err && err.message) || 'неизвестная ошибка');
+  }
+});
+
+refresh(); updateSave();
+</script>
+</body>
+</html>
