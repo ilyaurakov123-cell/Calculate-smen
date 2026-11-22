@@ -423,6 +423,8 @@ function fmtDur(min) {
   const h = Math.floor(min / 60), m = min % 60;
   return h ? (m ? `${h} ч ${m} мин` : `${h} ч`) : `${m} мин`;
 }
+// Округление биотайма до получаса: 10:46–11:15 → 11:00, 11:16–11:45 → 11:30, 11:46–12:15 → 12:00 и так далее
+function roundToBiotime(m) { return 30 * Math.floor((m + 14) / 30); }
 // Обратный расчёт: по концу смены и оплате за часы находим начало.
 // Оплата ночных часов (после 22:00, 240 ₽/ч) вычитается, остаток делится на 200 ₽/ч, затем возвращается обед 30 минут.
 function startFromPay(end, pay, mult = 1) {
@@ -438,19 +440,22 @@ function startFromPay(end, pay, mult = 1) {
     return { error: `Ночные часы до ${end} стоят ${nightPay} ₽, это не меньше введённой суммы. Проверьте время и сумму.` };
   }
   const dayMin = dayPay / (HOUR_RATE * mult) * 60;
-  const start = Math.round(e - night - dayMin - LUNCH_MIN);
+  const exact = Math.round(e - night - dayMin - LUNCH_MIN);
+  const start = roundToBiotime(exact);
   const length = e - start;
   if (length > 18 * 60) {
     return { error: `Получается смена на ${fmtDur(length)}. Проверьте время и сумму.` };
   }
-  const s = ((start % 1440) + 1440) % 1440;
-  return { start: pad(Math.floor(s / 60)) + ':' + pad(s % 60), night, nightPay, dayMin: Math.round(dayMin), length };
+  const hm = m => { const s = ((m % 1440) + 1440) % 1440; return pad(Math.floor(s / 60)) + ':' + pad(s % 60); };
+  return { start: hm(start), exact: hm(exact), night, nightPay, dayMin: Math.round(dayMin), length };
 }
 // Итого за день: оплата за часы + доставки по ценам зон + бонус
 function dayTotal(inp, prices) {
   const round2 = v => Math.round(v * 100) / 100;
   const sp = inp.start && inp.end ? shiftPay(inp.start, inp.end, inp.double ? 2 : 1) : null;
-  const hours = sp ? sp.pay : 0;
+  // сумма из приложения точнее расчёта: начало смены округлено до получаса
+  const entered = Number(inp.hoursPay);
+  const hours = Number.isFinite(entered) && entered > 0 ? entered : (sp ? sp.pay : 0);
   let deliveries = 0;
   (inp.zones || []).forEach((z, i) => {
     const n = parseNum(z);
@@ -606,7 +611,7 @@ function applyCalc() {
   }
   $('start').value = r.start; $('end').value = end;
   res.className = 'status good';
-  res.textContent = `${mult === 2 ? 'Двойная оплата. ' : ''}Смена началась в ${r.start}. Ночных часов: ${fmtDur(r.night)}, их оплата ${r.nightPay.toLocaleString('ru-RU')} ₽ вычтена из суммы.`;
+  res.textContent = `${mult === 2 ? 'Двойная оплата. ' : ''}Начало смены: ${r.start}${r.exact !== r.start ? ` (расчёт даёт ${r.exact}, округлено как в биотайме)` : ''}. Ночных часов: ${fmtDur(r.night)}, их оплата ${r.nightPay.toLocaleString('ru-RU')} ₽ вычтена из суммы.`;
 }
 function resetShift() {
   $('endCalc').value = ''; $('hoursPay').value = ''; $('doublePay').checked = false;
@@ -740,6 +745,7 @@ function readInput() {
   return {
     day, month, start: $('start').value, end: $('end').value,
     zones: [$('z0').value, $('z1').value, $('z2').value], bonus: $('bonus').value,
+    hoursPay: parseNum($('hoursPay').value),
     double: $('doublePay').checked,
   };
 }
@@ -768,11 +774,6 @@ function refresh() {
   $('addBtn').disabled = true;
   if (!ws) return;
 
-  const sp = inp.start && inp.end ? shiftPay(inp.start, inp.end, inp.double ? 2 : 1) : null;
-  if (sp) {
-    const nightText = sp.night ? `, из них ночных ${fmtDur(sp.night)}` : '';
-    notes.append(note('info', `Часы за смену: ${fmtDur(sp.total)}${nightText}, обед 30 минут вычтен. Оплата за часы${inp.double ? ' (двойная)' : ''}: ${sp.pay.toLocaleString('ru-RU')} ₽.`));
-  }
   const prices = ZONE_COLS.map(c => Number(plain(ws.getCell(HALVES.first.head, c))));
   const dt = dayTotal(inp, prices);
   if (dt.parts.length > 1) {
