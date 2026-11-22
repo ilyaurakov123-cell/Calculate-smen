@@ -288,6 +288,11 @@ function plan(ws, inp) {
   if (label !== inp.day) {
     errors.push(`В ячейке ${addr(b.label, b.col)} должно быть число ${inp.day}. Проверьте, что выбран файл нужного месяца.`);
   }
+  // Бонус в таблице уже стоит: день заполнен, нужно выбрать другой
+  const bonusNow = plain(ws.getCell(b.bonus, b.col));
+  if (bonusNow !== null && bonusNow !== undefined && bonusNow !== '') {
+    errors.push(`День ${inp.day} уже заполнен: в ячейке ${addr(b.bonus, b.col)} стоит бонус ${String(bonusNow).replace('.', ',')}. Выберите другой день.`);
+  }
 
   if (!!inp.start !== !!inp.end) {
     warnings.push('Указано только начало или только конец смены. Второе время в таблице не изменится.');
@@ -351,8 +356,6 @@ function plan(ws, inp) {
       if (above !== inp.day) errors.push(`Над ${addr(b.bonus, b.col)} ожидалось число ${inp.day}, нижняя таблица устроена иначе.`);
       const cell = ws.getCell(b.bonus, b.col);
       const old = plain(cell);
-      if (old !== null && old !== '' && Number(old) !== n) warnings.push(`Бонус за ${inp.day}-е уже был ${old}, он будет заменён.`);
-      if (hasFormula(cell)) warnings.push(`В ${addr(b.bonus, b.col)} была формула, она заменится числом.`);
       changes.push({
         title: 'Бонус за день', address: addr(b.bonus, b.col), cell,
         from: old === null || old === '' ? '—' : String(old), to: String(n), value: n, numFmt: null,
