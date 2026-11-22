@@ -72,12 +72,12 @@ label, legend, .lbl { font-size: 0.85rem; color: var(--muted); font-weight: 500;
 fieldset { border: 0; padding: 0; margin: 0; display: grid; gap: 8px; min-width: 0; }
 legend { padding: 0; margin-bottom: 8px; }
 legend .hint { color: var(--accent); font-weight: 600; }
-input[type="date"], input[type="time"], input[type="text"] {
+input[type="date"], input[type="time"], input[type="text"], select {
   width: 100%; min-height: 48px; padding: 0 12px; font: 500 1rem var(--font);
   color: var(--ink); background: var(--bg); border: 1px solid var(--line); border-radius: 10px;
   font-variant-numeric: tabular-nums; box-sizing: border-box;
 }
-input:focus-visible, .btn:focus-visible, .btn:focus-within { outline: 2px solid var(--accent); outline-offset: 2px; }
+input:focus-visible, select:focus-visible, .btn:focus-visible, .btn:focus-within { outline: 2px solid var(--accent); outline-offset: 2px; }
 .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 .row3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
 .btn {
@@ -96,13 +96,6 @@ input:focus-visible, .btn:focus-visible, .btn:focus-within { outline: 2px solid 
 .note.warn { background: var(--warn-bg); color: var(--warn); }
 .note.bad { background: var(--bad-bg); color: var(--bad); }
 .note.info { background: var(--accent-soft); color: var(--accent); font-weight: 500; }
-.seg { display: grid; gap: 8px; }
-.seg-btn {
-  min-height: 48px; padding: 8px 14px; border-radius: 12px; border: 1px solid var(--line);
-  background: var(--bg); color: var(--ink); font: 600 0.95rem var(--font); text-align: left; cursor: pointer;
-}
-.seg-btn[aria-pressed="true"] { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
-.seg-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .stack { display: grid; gap: 8px; }
 .changes, .log { list-style: none; margin: 0; padding: 0; display: grid; gap: 0; }
 .changes li { display: grid; gap: 2px; padding: 10px 0; border-top: 1px solid var(--line); }
@@ -117,6 +110,12 @@ input:focus-visible, .btn:focus-visible, .btn:focus-within { outline: 2px solid 
 .map dt { font-weight: 600; }
 .map dd { margin: 0; color: var(--muted); }
 .hint-text { margin: 0; color: var(--muted); font-size: 0.88rem; }
+.how { font-size: 0.92rem; color: var(--muted); min-width: 0; }
+.how summary { cursor: pointer; font-weight: 600; color: var(--accent); min-height: 44px; display: flex; align-items: center; }
+.how summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.how ol { margin: 4px 0 10px; padding-left: 1.3rem; display: grid; gap: 8px; }
+.check { display: flex; align-items: center; gap: 12px; min-height: 48px; font-size: 1rem; color: var(--ink); cursor: pointer; }
+.check input { width: 22px; height: 22px; flex: none; accent-color: var(--accent); }
 @media (prefers-reduced-motion: no-preference) { .btn { transition: opacity 0.15s; } }
 </style>
 
@@ -149,16 +148,16 @@ input:focus-visible, .btn:focus-visible, .btn:focus-within { outline: 2px solid 
       <label for="date">Дата</label>
       <input id="date" type="date">
     </div>
-    <div class="field">
-      <span class="lbl" id="shiftLbl">Часы работы</span>
-      <div class="seg" role="group" aria-labelledby="shiftLbl">
-        <button type="button" id="usualBtn" class="seg-btn" aria-pressed="false">Обычная смена (с 11:30 до 23:00)</button>
-        <button type="button" id="customBtn" class="seg-btn" aria-pressed="false">Другая смена</button>
+    <div class="stack">
+      <span class="lbl" id="calcLbl">Расчёт часов</span>
+      <input id="start" type="hidden">
+      <input id="end" type="hidden">
+      <div class="row2">
+        <div class="field"><label for="hoursPay">Оплата за часы, ₽</label><input id="hoursPay" type="text" inputmode="decimal" placeholder="2240" autocomplete="off"></div>
+        <div class="field"><label for="endCalc">Закончил в</label><select id="endCalc"><option value="">Выберите</option></select></div>
       </div>
-    </div>
-    <div id="timeRow" class="row2" hidden>
-      <div class="field"><label for="start">От</label><input id="start" type="time"></div>
-      <div class="field"><label for="end">До</label><input id="end" type="time"></div>
+      <label class="check" for="doublePay"><input id="doublePay" type="checkbox"> Двойная оплата за часы (праздничный день)</label>
+      <p id="calcResult" class="status" role="status" aria-live="polite">Сумма «Оплата за часы» подставится со скриншота. Выберите, во сколько закончили.</p>
     </div>
     <fieldset>
       <legend>Доставки по зонам <span class="hint" id="halfHint"></span></legend>
@@ -184,14 +183,20 @@ input:focus-visible, .btn:focus-visible, .btn:focus-within { outline: 2px solid 
       <div><dt>Бонус</dt><dd>нижняя таблица, строки 23, 25, 27, 29, ячейка нужного дня</dd></div>
     </dl>
     <button id="addBtn" class="btn primary" type="button" disabled>Добавить в таблицу</button>
-  </section>
-
-  <section class="card" aria-labelledby="t4">
-    <h2 id="t4"><span class="step">4</span>Сохранение</h2>
     <ul id="log" class="log" aria-label="Добавлено в этом сеансе"></ul>
-    <p id="pending" class="status">Пока ничего не добавлено</p>
+    <button id="undoBtn" class="btn secondary" type="button" hidden>Отменить последнее добавление</button>
+    <p id="pending" class="status" role="status" aria-live="polite">Пока ничего не добавлено</p>
     <button id="saveBtn" class="btn primary" type="button" disabled>Сохранить файл</button>
-    <p class="hint-text">В меню выберите «Сохранить в Файлы» и подтвердите замену старого файла.</p>
+    <details class="how">
+      <summary>Как сохранять сразу в тот же файл, без вопроса о замене</summary>
+      <ol>
+        <li>В приложении «Команды» создайте новую команду и назовите её «Обновить таблицу».</li>
+        <li>В настройках команды включите показ в меню «Поделиться» и разрешите тип «Файлы».</li>
+        <li>Добавьте действие «Сохранить файл». Выключите «Спрашивать, куда сохранить», выберите папку, где лежит ваша таблица, и включите «Перезаписывать, если файл существует». Этот пункт может прятаться под «Показать больше».</li>
+        <li>После кнопки «Сохранить файл» выберите в меню «Поделиться» команду «Обновить таблицу». Файл с тем же именем заменится в этой папке без вопросов.</li>
+      </ol>
+      <p class="hint-text">Названия пунктов в вашей версии iOS могут немного отличаться.</p>
+    </details>
   </section>
 </main>
 
@@ -403,7 +408,7 @@ function parsePeriod(text) {
 }
 // Оплата часов: 200 ₽/ч, с 22:00 надбавка 20%, обед 30 минут вычитается из дневных часов
 const HOUR_RATE = 200, NIGHT_RATE = 240, NIGHT_FROM = 22 * 60, LUNCH_MIN = 30;
-function shiftPay(start, end) {
+function shiftPay(start, end, mult = 1) {
   const toMin = s => { const m = /^(\d{1,2}):(\d{2})/.exec(s || ''); return m ? Number(m[1]) * 60 + Number(m[2]) : null; };
   const a = toMin(start);
   let b = toMin(end);
@@ -411,12 +416,62 @@ function shiftPay(start, end) {
   if (b <= a) b += 1440;
   const night = Math.max(0, b - Math.max(a, NIGHT_FROM));
   const day = Math.max(0, b - a - night - LUNCH_MIN);
-  const pay = Math.round((day / 60 * HOUR_RATE + night / 60 * NIGHT_RATE) * 100) / 100;
+  const pay = Math.round((day / 60 * HOUR_RATE + night / 60 * NIGHT_RATE) * mult * 100) / 100;
   return { total: day + night, day, night, pay };
 }
 function fmtDur(min) {
   const h = Math.floor(min / 60), m = min % 60;
   return h ? (m ? `${h} ч ${m} мин` : `${h} ч`) : `${m} мин`;
+}
+// Обратный расчёт: по концу смены и оплате за часы находим начало.
+// Оплата ночных часов (после 22:00, 240 ₽/ч) вычитается, остаток делится на 200 ₽/ч, затем возвращается обед 30 минут.
+function startFromPay(end, pay, mult = 1) {
+  const m = /^(\d{1,2}):(\d{2})/.exec(end || '');
+  if (!m) return { error: 'Укажите время окончания смены.' };
+  if (!Number.isFinite(pay) || pay <= 0) return { error: 'Укажите оплату за часы больше нуля.' };
+  let e = Number(m[1]) * 60 + Number(m[2]);
+  if (e <= 6 * 60) e += 1440; // конец смены после полуночи
+  const night = Math.max(0, e - NIGHT_FROM);
+  const nightPay = Math.round(night / 60 * NIGHT_RATE * mult * 100) / 100;
+  const dayPay = pay - nightPay;
+  if (dayPay <= 0) {
+    return { error: `Ночные часы до ${end} стоят ${nightPay} ₽, это не меньше введённой суммы. Проверьте время и сумму.` };
+  }
+  const dayMin = dayPay / (HOUR_RATE * mult) * 60;
+  const start = Math.round(e - night - dayMin - LUNCH_MIN);
+  const length = e - start;
+  if (length > 18 * 60) {
+    return { error: `Получается смена на ${fmtDur(length)}. Проверьте время и сумму.` };
+  }
+  const s = ((start % 1440) + 1440) % 1440;
+  return { start: pad(Math.floor(s / 60)) + ':' + pad(s % 60), night, nightPay, dayMin: Math.round(dayMin), length };
+}
+// Итого за день: оплата за часы + доставки по ценам зон + бонус
+function dayTotal(inp, prices) {
+  const round2 = v => Math.round(v * 100) / 100;
+  const sp = inp.start && inp.end ? shiftPay(inp.start, inp.end, inp.double ? 2 : 1) : null;
+  const hours = sp ? sp.pay : 0;
+  let deliveries = 0;
+  (inp.zones || []).forEach((z, i) => {
+    const n = parseNum(z);
+    if (Number.isFinite(n) && n > 0 && prices[i] > 0) deliveries += n * prices[i];
+  });
+  const b = parseNum(inp.bonus);
+  const bonus = Number.isFinite(b) && b > 0 ? b : 0;
+  const parts = [];
+  if (hours) parts.push({ label: 'часы', value: hours });
+  if (deliveries) parts.push({ label: 'доставки', value: deliveries });
+  if (bonus) parts.push({ label: 'бонус', value: bonus });
+  return { hours, deliveries, bonus, parts, total: round2(hours + deliveries + bonus) };
+}
+// Варианты времени окончания смены: шаг 30 минут, с 12:00 до 03:00 следующих суток
+function endOptions() {
+  const out = [];
+  for (let m = 12 * 60; m <= 27 * 60; m += 30) {
+    const t = m % 1440;
+    out.push({ value: pad(Math.floor(t / 60)) + ':' + pad(t % 60), nextDay: m >= 1440 });
+  }
+  return out;
 }
 // Разбор результата распознавания: строки с рамками и словами (координаты в пикселях скриншота)
 function ocrNumber(text) {
@@ -463,7 +518,18 @@ function parseOcr(rawLines) {
       const m = mid(w.bbox);
       return m.y < l.bbox.y0 && l.bbox.y0 - w.bbox.y1 < Math.max(150, 8 * h) && m.x > l.bbox.x0 - 40 && m.x < l.bbox.x1 + 40;
     }).sort((a, b) => b.bbox.y1 - a.bbox.y1);
-    return c.length ? ocrNumber(c[0].text) : null;
+    if (!c.length) return null;
+    // Сумма с пробелом («2 240») распознаётся как несколько слов в одной строке: склеиваем группы по три цифры
+    const first = c[0], fh = Math.max(1, first.bbox.y1 - first.bbox.y0), fy = mid(first.bbox).y;
+    const row = c.filter(w => Math.abs(mid(w.bbox).y - fy) < 0.6 * fh).sort((x, y) => x.bbox.x0 - y.bbox.x0);
+    let text = row[0].text.replace(/[^\d.,]/g, '');
+    for (let i = 1; i < row.length; i++) {
+      const t = row[i].text.trim();
+      if (/^\d{3}(?:[.,]\d+)?\D{0,2}$/.test(t) && /^\d{1,3}$/.test(text.replace(/[ ,.]/g, '').slice(0, 3)) && !/[.,]/.test(text)) {
+        text += t.replace(/[^\d.,]/g, '');
+      } else break;
+    }
+    return ocrNumber(text);
   };
 
   const zones = [];
@@ -477,6 +543,7 @@ function parseOcr(rawLines) {
   const totalLine = find(/общее.*доставок/);
   const payLine = find(/оплата\s+за\s+доставк/);
   const bonusLine = find(/бонус/);
+  const hoursLine = find(/оплата\s+за\s+час/);
 
   const all = lines.map(l => l.text).join('\n');
   const pm = /сегодня|вчера/i.exec(all)
@@ -488,16 +555,17 @@ function parseOcr(rawLines) {
     zones,
     total_deliveries: totalLine ? countOf(totalLine) : null,
     delivery_pay: payLine ? above(payLine) : null,
+    hours_pay: hoursLine ? above(hoursLine) : null,
     bonus: bonusLine ? above(bonusLine) : null,
   };
 }
 // Несколько скриншотов одного дня: берём первое найденное значение каждого поля
 function mergeShots(list) {
-  const out = { period: null, zones: [], total_deliveries: null, delivery_pay: null, bonus: null };
+  const out = { period: null, zones: [], total_deliveries: null, delivery_pay: null, hours_pay: null, bonus: null };
   for (const d of list) {
     if (out.period === null && d.period) out.period = d.period;
     if (!out.zones.length && d.zones.length) out.zones = d.zones;
-    for (const k of ['total_deliveries', 'delivery_pay', 'bonus']) if (out[k] === null && d[k] != null) out[k] = d[k];
+    for (const k of ['total_deliveries', 'delivery_pay', 'hours_pay', 'bonus']) if (out[k] === null && d[k] != null) out[k] = d[k];
   }
   return out;
 }
@@ -510,24 +578,43 @@ const MONTH_STEMS = [/январ/, /феврал/, /март/, /апрел/, /м
 
 let wb = null, ws = null, fileName = '', applied = 0;
 
-// --- Выбор смены: обычная или другая ---
-const USUAL = { start: '11:30', end: '23:00' };
-function setShiftMode(mode) {
-  $('usualBtn').setAttribute('aria-pressed', String(mode === 'usual'));
-  $('customBtn').setAttribute('aria-pressed', String(mode === 'custom'));
-  $('timeRow').hidden = mode !== 'custom';
-  $('start').value = mode === 'usual' ? USUAL.start : '';
-  $('end').value = mode === 'usual' ? USUAL.end : '';
+// --- Расчёт часов: сумма «Оплата за часы» и время окончания (шаг 30 минут) ---
+for (const o of endOptions()) {
+  const opt = document.createElement('option');
+  opt.value = o.value;
+  opt.textContent = o.nextDay ? `${o.value} (после полуночи)` : o.value;
+  $('endCalc').append(opt);
 }
-$('usualBtn').addEventListener('click', () => {
-  setShiftMode($('usualBtn').getAttribute('aria-pressed') === 'true' ? null : 'usual');
-  refresh();
-});
-$('customBtn').addEventListener('click', () => {
-  const on = $('customBtn').getAttribute('aria-pressed') === 'true';
-  setShiftMode(on ? null : 'custom');
-  refresh();
-  if (!on) $('start').focus();
+// Начало смены считается из конца смены и суммы за часы
+function applyCalc() {
+  const res = $('calcResult');
+  const end = $('endCalc').value, pay = parseNum($('hoursPay').value);
+  $('start').value = ''; $('end').value = '';
+  if (!end || !Number.isFinite(pay)) {
+    res.className = 'status';
+    res.textContent = 'Сумма «Оплата за часы» подставится со скриншота. Выберите, во сколько закончили.';
+    return;
+  }
+  const mult = $('doublePay').checked ? 2 : 1;
+  const r = startFromPay(end, pay, mult);
+  if (r.error) {
+    res.className = 'status bad';
+    // сумма вдвое больше обычной: скорее всего, забыли отметить двойную оплату
+    const hint = mult === 1 && !startFromPay(end, pay, 2).error ? ' Похоже на день с двойной оплатой: отметьте флажок ниже.' : '';
+    res.textContent = r.error + hint;
+    return;
+  }
+  $('start').value = r.start; $('end').value = end;
+  res.className = 'status good';
+  res.textContent = `${mult === 2 ? 'Двойная оплата. ' : ''}Смена началась в ${r.start}. Ночных часов: ${fmtDur(r.night)}, их оплата ${r.nightPay.toLocaleString('ru-RU')} ₽ вычтена из суммы.`;
+}
+function resetShift() {
+  $('endCalc').value = ''; $('hoursPay').value = ''; $('doublePay').checked = false;
+  applyCalc();
+}
+['endCalc', 'hoursPay', 'doublePay'].forEach(id => {
+  $(id).addEventListener('input', () => { applyCalc(); refresh(); });
+  $(id).addEventListener('change', () => { applyCalc(); refresh(); });
 });
 
 // --- Чтение скриншотов приложения прямо в браузере (Tesseract.js) ---
@@ -554,6 +641,50 @@ function setDateFromPeriod(per) {
   $('date').value = `${y}-${pad(m + 1)}-${pad(d)}`;
   return true;
 }
+// Заполняет поля по данным со скриншотов (общая часть для чтения через Claude и через распознавание в браузере)
+function applyShotData(data, st, notes) {
+  data = data || {};
+  const { sums, unknown } = mapZones(data.zones);
+
+  ['z0', 'z1', 'z2'].forEach(id => { $(id).value = ''; });
+  for (const price of ZONE_PRICES) {
+    const i = zoneIndex(price);
+    if (sums[price] && i >= 0) $('z' + i).value = String(sums[price]);
+  }
+
+  const bonus = data.bonus != null ? Number(data.bonus) : NaN;
+  const hasBonus = Number.isFinite(bonus);
+  if (hasBonus) $('bonus').value = String(bonus).replace('.', ',');
+
+  const dateSet = setDateFromPeriod(parsePeriod(data.period));
+
+  // Оплата за часы подставляется в «Расчёт часов», по ней и по времени окончания считается начало смены
+  const hp = data.hours_pay != null ? Number(data.hours_pay) : NaN;
+  const hasHours = Number.isFinite(hp) && hp > 0;
+  if (hasHours) {
+    $('hoursPay').value = String(hp).replace('.', ',');
+    applyCalc();
+  }
+
+  const parts = ZONE_PRICES.filter(p => sums[p]).map(p => `${p} ₽ ×${sums[p]}`);
+  if (hasBonus) parts.push(`бонус ${bonus} ₽`);
+  if (hasHours) parts.push(`оплата за часы ${hp} ₽`);
+  st.className = 'status ' + (parts.length ? 'good' : 'bad');
+  st.textContent = parts.length
+    ? `Распознано: ${parts.join(', ')}. Проверьте поля ниже.`
+    : 'На скриншотах ничего не нашлось. Заполните поля вручную.';
+
+  checkShots(data, sums).forEach(t => notes.append(note('warn', t)));
+  unknown.forEach(n => notes.append(note('warn', `Не удалось отнести к цене зону «${n}». Добавьте её количество вручную.`)));
+  if (!hasBonus) notes.append(note('warn', 'Бонус на скриншотах не найден.'));
+  if (!dateSet) notes.append(note('warn', 'Дату на скриншотах определить не удалось, проверьте её сами.'));
+
+  if (hasHours && !$('endCalc').value) {
+    notes.append(note('info', 'Оплата за часы подставлена. Выберите, во сколько закончили, и начало смены посчитается само.'));
+  } else if (!hasHours && !$('hoursPay').value) {
+    notes.append(note('warn', 'Оплаты за часы на скриншотах нет или она 0 ₽ (смена ещё идёт). Загрузите скриншот после окончания смены или впишите сумму вручную.'));
+  }
+}
 
 $('shots').addEventListener('change', async e => {
   const files = Array.from(e.target.files || []);
@@ -579,33 +710,8 @@ $('shots').addEventListener('change', async e => {
       found.push(parseOcr(ocrLines(res.data)));
     }
     const data = mergeShots(found);
-    const { sums, unknown } = mapZones(data.zones);
-
-    ['z0', 'z1', 'z2'].forEach(id => { $(id).value = ''; });
-    for (const price of ZONE_PRICES) {
-      const i = zoneIndex(price);
-      if (sums[price] && i >= 0) $('z' + i).value = String(sums[price]);
-    }
-
-    const bonus = data.bonus != null ? Number(data.bonus) : NaN;
-    const hasBonus = Number.isFinite(bonus);
-    if (hasBonus) $('bonus').value = String(bonus).replace('.', ',');
-
-    const dateSet = setDateFromPeriod(parsePeriod(data.period));
-
-    const parts = ZONE_PRICES.filter(p => sums[p]).map(p => `${p} ₽ ×${sums[p]}`);
-    if (hasBonus) parts.push(`бонус ${bonus} ₽`);
-    st.className = 'status ' + (parts.length ? 'good' : 'bad');
-    st.textContent = parts.length
-      ? `Распознано: ${parts.join(', ')}. Проверьте поля ниже.`
-      : 'На скриншотах ничего не нашлось. Заполните поля вручную.';
-
-    if (parts.length) notes.append(note('info', 'Распознавание на телефоне иногда ошибается: сверьте числа со скриншотами.'));
-    checkShots(data, sums).forEach(t => notes.append(note('warn', t)));
-    unknown.forEach(n => notes.append(note('warn', `Не удалось отнести к цене зону «${n}». Добавьте её количество вручную.`)));
-    if (!hasBonus) notes.append(note('warn', 'Бонус на скриншотах не найден.'));
-    if (!dateSet) notes.append(note('warn', 'Дату на скриншотах определить не удалось, проверьте её сами.'));
-    if (!$('start').value && !$('end').value) notes.append(note('warn', 'Время смены на этих экранах не видно. Выберите «Обычная смена» или введите время вручную.'));
+    applyShotData(data, st, notes);
+    if (st.className.includes('good')) notes.append(note('info', 'Распознавание на телефоне иногда ошибается: сверьте числа со скриншотами.'));
   } catch (err) {
     st.className = 'status bad';
     st.textContent = 'Не удалось прочитать скриншоты. Выберите их ещё раз или введите данные вручную.';
@@ -634,6 +740,7 @@ function readInput() {
   return {
     day, month, start: $('start').value, end: $('end').value,
     zones: [$('z0').value, $('z1').value, $('z2').value], bonus: $('bonus').value,
+    double: $('doublePay').checked,
   };
 }
 
@@ -644,6 +751,14 @@ function note(kind, text) {
   return p;
 }
 
+// Что уже добавлено в этом сеансе: нужно для отмены и защиты от повторов
+const addLog = [];
+const deliveredDays = new Set();
+let armed = false;
+const dayKey = inp => `${inp.month}-${inp.day}`;
+const hasDeliveries = inp => inp.zones.some(z => { const n = parseNum(z); return Number.isFinite(n) && n > 0; });
+const fmtRub = v => v.toLocaleString('ru-RU') + ' ₽';
+
 function refresh() {
   const inp = readInput();
   $('halfHint').textContent = inp.day ? (inp.day <= 15 ? '· дни 1–15, строка 14' : '· дни 16–31, строка 16') : '';
@@ -653,16 +768,31 @@ function refresh() {
   $('addBtn').disabled = true;
   if (!ws) return;
 
-  const sp = inp.start && inp.end ? shiftPay(inp.start, inp.end) : null;
+  const sp = inp.start && inp.end ? shiftPay(inp.start, inp.end, inp.double ? 2 : 1) : null;
   if (sp) {
     const nightText = sp.night ? `, из них ночных ${fmtDur(sp.night)}` : '';
-    notes.append(note('info', `Часы за смену: ${fmtDur(sp.total)}${nightText}, обед 30 минут вычтен. Оплата за часы: ${sp.pay.toLocaleString('ru-RU')} ₽.`));
+    notes.append(note('info', `Часы за смену: ${fmtDur(sp.total)}${nightText}, обед 30 минут вычтен. Оплата за часы${inp.double ? ' (двойная)' : ''}: ${sp.pay.toLocaleString('ru-RU')} ₽.`));
+  }
+  const prices = ZONE_COLS.map(c => Number(plain(ws.getCell(HALVES.first.head, c))));
+  const dt = dayTotal(inp, prices);
+  if (dt.parts.length > 1) {
+    notes.append(note('info', `Итого за день: ${dt.parts.map(x => `${x.label} ${fmtRub(x.value)}`).join(' + ')} = ${fmtRub(dt.total)}.`));
+  }
+  armed = false; // любое изменение ввода снимает подтверждение повторного добавления
+  const dup = hasDeliveries(inp) && deliveredDays.has(dayKey(inp));
+  $('addBtn').textContent = dup ? 'Добавить ещё раз' : 'Добавить в таблицу';
+  if (dup) {
+    notes.append(note('warn', `Доставки за ${inp.day}-е уже добавлены в этом сеансе. Если добавить ещё раз, количество удвоится. Лишнее можно убрать кнопкой «Отменить последнее добавление».`));
   }
   const p = plan(ws, inp);
   const stem = MONTH_STEMS.findIndex(r => r.test(fileName.toLowerCase()));
   if (stem >= 0 && inp.month !== null && stem !== inp.month) {
     p.warnings.unshift(`В названии файла месяц «${MONTH_NAMES[stem]}», а дата выбрана в месяце «${MONTH_NAMES[inp.month]}».`);
   }
+  // Расчёт часов начат, но не доведён до времени смены: запись без часов не добавляем
+  const calcStarted = $('hoursPay').value.trim() !== '' || $('endCalc').value !== '';
+  const calcIncomplete = calcStarted && !(inp.start && inp.end);
+  if (calcIncomplete) notes.append(note('bad', 'Расчёт часов не закончен: заполните сумму и время окончания или очистите оба поля.'));
   p.errors.forEach(t => notes.append(note('bad', t)));
   p.warnings.forEach(t => notes.append(note('warn', t)));
   if (!p.changes.length && !p.errors.length) {
@@ -680,7 +810,7 @@ function refresh() {
     list.append(li);
   }
   if (p.changes.length) $('legend').hidden = true;
-  $('addBtn').disabled = !p.changes.length || p.errors.length > 0;
+  $('addBtn').disabled = !p.changes.length || p.errors.length > 0 || calcIncomplete;
 }
 
 function updateSave() {
@@ -712,6 +842,7 @@ $('file').addEventListener('change', async e => {
     } else {
       wb = book; ws = found; fileName = f.name; applied = 0;
       $('log').replaceChildren();
+      addLog.length = 0; deliveredDays.clear(); armed = false; $('undoBtn').hidden = true;
       ZONE_COLS.forEach((c, i) => { $('zl' + i).textContent = `Зона ${plain(ws.getCell(HALVES.first.head, c))} ₽`; });
       setStatus(`Готово: ${fileName}, лист «${ws.name}»`, 'good');
     }
@@ -734,6 +865,13 @@ $('addBtn').addEventListener('click', () => {
   const inp = readInput();
   const p = plan(ws, inp);
   if (p.errors.length || !p.changes.length) { refresh(); return; }
+  // Повторное добавление доставок за тот же день требует второго нажатия
+  if (hasDeliveries(inp) && deliveredDays.has(dayKey(inp)) && !armed) {
+    armed = true;
+    $('addBtn').textContent = 'Да, добавить ещё раз';
+    return;
+  }
+  const snap = p.changes.map(ch => ({ cell: ch.cell, value: ch.cell.value, numFmt: ch.cell.numFmt }));
   for (const ch of p.changes) {
     ch.cell.value = ch.value;
     if (ch.numFmt) ch.cell.numFmt = ch.numFmt;
@@ -748,9 +886,28 @@ $('addBtn').addEventListener('click', () => {
   const li = document.createElement('li');
   li.textContent = `${inp.day} ${MONTH_GEN[inp.month]}: ${parts.join('; ')}`;
   $('log').prepend(li);
+  const withDeliveries = hasDeliveries(inp);
+  addLog.push({ key: dayKey(inp), deliveries: withDeliveries, snap, li, count: p.changes.length });
+  if (withDeliveries) deliveredDays.add(dayKey(inp));
+  $('undoBtn').hidden = false;
 
   ['z0', 'z1', 'z2', 'bonus'].forEach(id => { $(id).value = ''; });
-  setShiftMode(null);
+  resetShift();
+  refresh(); updateSave();
+});
+
+$('undoBtn').addEventListener('click', () => {
+  const last = addLog.pop();
+  if (!last) return;
+  for (const s of last.snap.slice().reverse()) {
+    s.cell.value = s.value;
+    s.cell.numFmt = s.numFmt || 'General';
+  }
+  applied = Math.max(0, applied - last.count);
+  // день остаётся «добавленным», если за него доставки добавляли раньше
+  if (last.deliveries && !addLog.some(e => e.key === last.key && e.deliveries)) deliveredDays.delete(last.key);
+  last.li.remove();
+  $('undoBtn').hidden = addLog.length === 0;
   refresh(); updateSave();
 });
 
@@ -779,7 +936,7 @@ $('saveBtn').addEventListener('click', async () => {
     pend.textContent = how === 'cancelled'
       ? 'Сохранение отменено. Изменения остались на странице, нажмите кнопку ещё раз.'
       : how === 'shared'
-        ? 'Выберите «Сохранить в Файлы» и подтвердите замену старого файла.'
+        ? 'Меню открыто. Выберите команду «Обновить таблицу». Если её ещё нет, инструкция ниже.'
         : 'Файл скачан в загрузки. Замените им старый файл в «Файлах».';
   } catch (err) {
     pend.textContent = 'Не удалось сохранить: ' + ((err && err.message) || 'неизвестная ошибка');
